@@ -1,311 +1,77 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { api } from '../api'
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { Routes, Route } from 'react-router-dom';
 
-export default function AllPerks() {
-  
- 
-  const [perks, setPerks] = useState([])
+import AllPerks from '../src/pages/AllPerks.jsx';
+import { renderWithRouter } from './utils/renderWithRouter.js';
 
-  const [searchQuery, setSearchQuery] = useState('')
+describe('AllPerks page (Directory)', () => {
+  test('lists public perks and responds to name filtering', async () => {
+    // The seeded record gives us a deterministic expectation regardless of the
+    // rest of the shared database contents.
+    const seededPerk = global._TEST_CONTEXT_.seededPerk;
 
- 
-  const [merchantFilter, setMerchantFilter] = useState('')
+    // Debug: Check if seeded perk exists
+    console.log('Seeded perk:', seededPerk);
+    console.log('Token in localStorage:', window.localStorage.getItem('token'));
 
- 
-  const [uniqueMerchants, setUniqueMerchants] = useState([])
+    // Render the exploration page so it performs its real HTTP fetch.
+    renderWithRouter(
+      <Routes>
+        <Route path="/explore" element={<AllPerks />} />
+      </Routes>,
+      { initialEntries: ['/explore'] }
+    );
 
-  
-  const [loading, setLoading] = useState(true)
+    // Wait for the baseline card to appear which guarantees the asynchronous
+    // fetch finished.
+    await waitFor(() => {
+      expect(screen.getByText(seededPerk.title)).toBeInTheDocument();
+    }, { timeout: 10000 });
 
-  
-  const [error, setError] = useState('')
+    // Interact with the name filter input using the real value that
+    // corresponds to the seeded record.
+    const nameFilter = screen.getByPlaceholderText('Enter perk name...');
+    fireEvent.change(nameFilter, { target: { value: seededPerk.title } });
 
-  // ==================== SIDE EFFECTS WITH useEffect HOOK ====================
+    await waitFor(() => {
+      expect(screen.getByText(seededPerk.title)).toBeInTheDocument();
+    });
 
- /*
- TODO: HOOKS TO IMPLEMENT
- * useEffect Hook #1: Initial Data Loading
- * useEffect Hook #2: Auto-search on Input Change
+    // The summary text should continue to reflect the number of matching perks.
+    expect(screen.getByText(/showing/i)).toHaveTextContent('Showing');
+  });
 
-*/
+  test('lists public perks and responds to merchant filtering', async () => {
+    // Use the seeded record
+    const seededPerk = global._TEST_CONTEXT_.seededPerk;
 
-  // Initial Data Loading
-  useEffect(() => {
-    // Load all perks when component mounts
-    loadAllPerks()
-    // Empty dependency array means this effect runs only once on mount
-  }, []) // Run once on component mount
-  
-  useEffect(() => {
-    // Extract all merchant names from perks array
-    const merchants = perks
-      .map(perk => perk.merchant) // Get merchant from each perk
-      .filter(merchant => merchant && merchant.trim()) // Remove empty/null values
-    
-    // Create array of unique merchants using Set
-    // Set automatically removes duplicates, then we convert back to array
-    const unique = [...new Set(merchants)]
-    
-    // Update state with unique merchants
-    setUniqueMerchants(unique)
-    
-    // This effect depends on [perks], so it re-runs whenever perks changes
-  }, [perks]) // Dependency: re-run when perks array changes
+    // Debug: Check if seeded perk exists
+    console.log('Seeded perk:', seededPerk);
 
-  // Auto-search on Input Change
-  useEffect(() => {
-    // Debounce mechanism: wait 500ms after user stops typing/changing filter
-    const debounceTimeout = setTimeout(() => {
-      loadAllPerks()
-    }, 500)
-    
-    // Cleanup function to clear timeout if inputs change again before 500ms
-    return () => clearTimeout(debounceTimeout)
-    
-    // This effect depends on [searchQuery, merchantFilter]
-  }, [searchQuery, merchantFilter]) // Dependencies: re-run when searchQuery or merchantFilter changes
+    // Render the page so it performs its real HTTP fetch.
+    renderWithRouter(
+      <Routes>
+        <Route path="/explore" element={<AllPerks />} />
+      </Routes>,
+      { initialEntries: ['/explore'] }
+    );
 
-  
-  async function loadAllPerks() {
-    // Reset error state before new request
-    setError('')
-    
-    // Show loading indicator
-    setLoading(true)
-    
-    try {
-      // Make GET request to /api/perks/all with query parameters
-      const res = await api.get('/perks/all', {
-        params: {
-          // Only include search param if searchQuery is not empty
-          search: searchQuery.trim() || undefined,
-          // Only include merchant param if merchantFilter is not empty
-          merchant: merchantFilter.trim() || undefined
-        }
-      })
-      
-      // Update perks state with response data
-      setPerks(res.data.perks)
-      
-    } catch (err) {
-      // Handle errors (network failure, server error, etc.)
-      console.error('Failed to load perks:', err)
-      setError(err?.response?.data?.message || 'Failed to load perks')
-      
-    } finally {
-      // This block runs whether try succeeds or catch handles error
-      // Always stop loading indicator
-      setLoading(false)
-    }
-  }
+    // Wait for the fetch to finish
+    await waitFor(() => {
+      expect(screen.getByText(seededPerk.title)).toBeInTheDocument();
+    }, { timeout: 10000 });
 
-  // ==================== EVENT HANDLERS ====================
+    // Choose the record's merchant from the dropdown.
+    // We'll find the <select> element by its 'combobox' role.
+    const merchantFilter = screen.getByRole('combobox');
+    fireEvent.change(merchantFilter, { target: { value: seededPerk.merchant } });
 
-  
-  function handleSearch(e) {
-    // Prevent default form submission behavior (page reload)
-    e.preventDefault()
-    
-    // Immediately reload perks with current search and filter values
-    // This bypasses the debounce delay for instant results
-    loadAllPerks()
-  }
+    // Verify the record is still displayed after filtering
+    await waitFor(() => {
+      expect(screen.getByText(seededPerk.title)).toBeInTheDocument();
+    });
 
-  
-  function handleReset() {
-    // Reset search and filter states to empty
-    // The useEffect with [searchQuery, merchantFilter] dependencies
-    // will automatically trigger and reload all perks
-    setSearchQuery('')
-    setMerchantFilter('')
-  }
-
-  
-  
-  return (
-    /*
-    TODO: HTML INPUT HANDLERS
- * Update state when user types in search box
- * update state when user selects filter
-    */
-    <div className="max-w-6xl mx-auto space-y-6">
-      
-      {/* Page Title */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">All Perks</h1>
-        <div className="text-sm text-zinc-600">
-          Showing {perks.length} perk{perks.length !== 1 ? 's' : ''}
-        </div>
-      </div>
-
-      {/* Search and Filter Form */}
-      <div className="card">
-        <form onSubmit={handleSearch} className="space-y-4">
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
-            
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 mb-2">
-                <span className="material-symbols-outlined text-sm align-middle">search</span>
-                {' '}Search by Name
-              </label>
-              <input
-                type="text"
-                className="input"
-                placeholder="Enter perk name..."
-                onChange={e => setSearchQuery(e.target.value)}
-              />
-              <p className="text-xs text-zinc-500 mt-1">
-                Auto-searches as you type, or press Enter / click Search
-              </p>
-            </div>
-
-            {/* Merchant Filter Dropdown - Controlled Component */}
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 mb-2">
-                <span className="material-symbols-outlined text-sm align-middle">store</span>
-                {' '}Filter by Merchant
-              </label>
-              <select
-                className="input"
-                onChange={e => setMerchantFilter(e.target.value)}
-              >
-                <option value="">All Merchants</option>
-                
-                {uniqueMerchants.map(merchant => (
-                  <option key={merchant} value={merchant}>
-                    {merchant}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-3 items-center">
-            <button type="submit" className="btn bg-blue-600 text-white border-blue-600 hover:bg-blue-700">
-              <span className="material-symbols-outlined text-sm align-middle">search</span>
-              {' '}Search Now
-            </button>
-            <button 
-              type="button" 
-              onClick={handleReset}
-              className="btn"
-            >
-              <span className="material-symbols-outlined text-sm align-middle">refresh</span>
-              {' '}Reset Filters
-            </button>
-            
-            {/* Loading indicator */}
-            {loading && (
-              <div className="flex items-center gap-2 text-sm text-zinc-600">
-                <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
-                Searching...
-              </div>
-            )}
-          </div>
-        </form>
-      </div>
-
-      {/* Error Message - Inline, doesn't replace the UI */}
-      {error && (
-        <div className="card border-red-200 bg-red-50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-red-600">
-              <span className="material-symbols-outlined">error</span>
-              <p>{error}</p>
-            </div>
-            <button onClick={loadAllPerks} className="btn text-sm">
-              Try Again
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Perks Grid - Always visible, updates in place */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        
-        {/* 
-          Conditional Rendering with map():
-          - If perks.length > 0: Show perk cards
-          - If perks.length === 0: Show empty state (after the map)
-        */}
-        {perks.map(perk => (
-          
-          <Link to={`/perks/${perk._id}/view`}
-            key={perk._id}
-           
-            className="card hover:shadow-lg transition-shadow cursor-pointer"
-          >
-            {/* Perk Title */}
-            <div className="font-semibold text-lg text-zinc-900 mb-2">
-              {perk.title}
-            </div>
-
-            {/* Perk Metadata */}
-            <div className="text-sm text-zinc-600 space-y-1">
-              {/* Conditional Rendering with && operator */}
-              {/* Only show merchant if it exists */}
-              {perk.merchant && (
-                <div className="flex items-center gap-1">
-                  <span className="material-symbols-outlined text-xs">store</span>
-                  {perk.merchant}
-                </div>
-              )}
-              
-              <div className="flex items-center gap-1">
-                <span className="material-symbols-outlined text-xs">category</span>
-                <span className="capitalize">{perk.category}</span>
-              </div>
-              
-              {perk.discountPercent > 0 && (
-                <div className="flex items-center gap-1 text-green-600 font-semibold">
-                  <span className="material-symbols-outlined text-xs">local_offer</span>
-                  {perk.discountPercent}% OFF
-                </div>
-              )}
-            </div>
-
-            {/* Description - truncated if too long */}
-            {perk.description && (
-              <p className="mt-2 text-sm text-zinc-700 line-clamp-2">
-                {perk.description}
-              </p>
-            )}
-
-            {/* Creator info - populated from backend */}
-            {perk.createdBy && (
-              <div className="mt-3 pt-3 border-t border-zinc-200 text-xs text-zinc-500">
-                Created by: {perk.createdBy.name || perk.createdBy.email}
-              </div>
-            )}
-          </Link>
-        ))}
-
-        
-        {perks.length === 0 && !loading && (
-          <div className="col-span-full text-center py-12 text-zinc-600">
-            <span className="material-symbols-outlined text-5xl mb-4 block text-zinc-400">
-              sentiment_dissatisfied
-            </span>
-            <p className="text-lg">No perks found.</p>
-            <p className="text-sm mt-2">Try adjusting your search or filters.</p>
-          </div>
-        )}
-
-        
-        {loading && perks.length === 0 && (
-          <div className="col-span-full text-center py-12 text-zinc-600">
-            <span className="material-symbols-outlined text-5xl mb-4 block text-zinc-400 animate-spin">
-              progress_activity
-            </span>
-            <p className="text-lg">Loading perks...</p>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
+    // Verify the summary text reflects the number of matching perks
+    expect(screen.getByText(/showing/i)).toHaveTextContent('Showing');
+  });
+});

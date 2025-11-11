@@ -18,9 +18,9 @@ async function startHttpServer() {
 describe('Authentication controller integration', () => {
   const uniqueSuffix = crypto.randomUUID();
   const credentials = {
-    name: `Test Runner ${uniqueSuffix}`,
-    email: `test.runner.${uniqueSuffix}@example.com`,
-    password: `P@ssw0rd-${uniqueSuffix.slice(0, 8)}`
+    name: Test Runner ${uniqueSuffix},
+    email: test.runner.${uniqueSuffix}@example.com,
+    password: P@ssw0rd-${uniqueSuffix.slice(0, 8)}
   };
 
   let serverInstance;
@@ -34,7 +34,7 @@ describe('Authentication controller integration', () => {
 
     serverInstance = await startHttpServer();
     const { port } = serverInstance.address();
-    baseUrl = `http://127.0.0.1:${port}/api`;
+    baseUrl = http://127.0.0.1:${port}/api;
   });
 
   afterAll(async () => {
@@ -46,7 +46,7 @@ describe('Authentication controller integration', () => {
   });
 
   test('registers a brand-new user and returns a JWT for immediate use', async () => {
-    const response = await fetch(`${baseUrl}/auth/register`, {
+    const response = await fetch(${baseUrl}/auth/register, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(credentials)
@@ -73,13 +73,35 @@ describe('Authentication controller integration', () => {
   - store the issued token for use in subsequent tests
   */
   test('authenticates the same user and issues a fresh JWT', async () => {
-    // This test will always fail until the TODO above is implemented.
-    expect(true).toBe(false);
+    // Attempt login request with the user's credentials
+    const response = await fetch(${baseUrl}/auth/login, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: credentials.email,
+        password: credentials.password
+      })
+    });
+
+    const payload = await response.json();
+
+    // Expect a 200 (OK) response
+    expect(response.status).toBe(200);
+
+    // Expect a new JWT token in the response
+    expect(payload.token).toBeTruthy();
+
+    // Expect the returned user profile to match the registered user
+    expect(payload.user.email).toBe(credentials.email.toLowerCase());
+    expect(payload.user).not.toHaveProperty('passwordHash');
+
+    // Store the newly issued token to be used by the next test
+    issuedToken = payload.token;
   });
 
   test('returns the public profile for the currently authenticated user', async () => {
-    const response = await fetch(`${baseUrl}/auth/me`, {
-      headers: { Authorization: `Bearer ${issuedToken}` }
+    const response = await fetch(${baseUrl}/auth/me, {
+      headers: { Authorization: Bearer ${issuedToken} }
     });
 
     const payload = await response.json();
